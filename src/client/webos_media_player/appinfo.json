@@ -1,0 +1,14 @@
+{
+    "id": "ishara.software.co.webos.mediaplayer",
+    "version": "1.0.0",
+    "vendor": "Ishara Sampath Abeyarathne",
+    "type": "web",
+    "main": "index.html",
+    "title": "WebOS Media Player",
+    "icon": "icon.png",
+    "largeIcon": "largeIcon.png",
+    "bgColor": "#000000",
+    "handlesBackKey": true,
+    "relaunchOnNewInstance": true,
+    "uiRotation": "landscape"
+}

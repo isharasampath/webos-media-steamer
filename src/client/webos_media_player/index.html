@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebOS Media Player</title>
+    <style>
+        /* 1. FONT SETUP */
+        @font-face {
+            font-family: 'SinhalaFont';
+            src: url('assets/fonts/NotoSansSinhala-Regular.ttf');
+        }
+
+        body {
+            background-color: #050505;
+            color: #eeeeee;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        /* 2. LIBRARY BROWSER UI */
+        #browser-ui {
+            padding: 50px;
+            height: 100vh;
+            display: block;
+            /* Shown by default */
+        }
+
+        h1 {
+            color: #f1c40f;
+            font-size: 38px;
+            margin-bottom: 10px;
+        }
+
+        #status {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 20px;
+        }
+
+        .media-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 25px;
+            height: 70vh;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .media-card {
+            background: #1a1a1a;
+            padding: 25px;
+            border-radius: 12px;
+            border: 3px solid transparent;
+            cursor: pointer;
+            font-size: 22px;
+            transition: 0.2s;
+            outline: none;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Magic Remote Hover/Focus Effect */
+        .media-card:focus {
+            border-color: #e74c3c;
+            background: #2a2a2a;
+            transform: scale(1.05);
+        }
+
+        /* 3. VIDEO PLAYER UI */
+        #player-ui {
+            display: none;
+            /* Hidden by default */
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            z-index: 10000; /* Higher than the 9999 of top-nav-bar */
+        }
+
+        video {
+            width: 100%;
+            height: 100%;
+            /* Forces the TV to use the hardware video layer */
+            transform: translateZ(0);
+            backface-visibility: hidden;
+            perspective: 1000;
+        }
+
+        /* Sinhala Subtitle Formatting */
+        video::cue {
+            font-family: 'SinhalaFont', sans-serif;
+            font-size: 0.8em;
+            background-color: transparent;
+            color: white;
+        }
+
+        /* Settings Modal */
+        #settings-ui {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.9);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .settings-box {
+            position: relative;
+            /* Needed to anchor the X in the corner */
+            background: #222;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid #f1c40f;
+        }
+
+        .close-x {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            color: #888;
+            cursor: pointer;
+            line-height: 1;
+            transition: 0.2s;
+        }
+
+        .close-x:hover {
+            color: #e74c3c;
+            /* Turns red when you point at it */
+            transform: scale(1.2);
+        }
+
+        input {
+            font-size: 24px;
+            padding: 10px;
+            width: 300px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+            border: none;
+            text-align: center;
+        }
+
+        .btn {
+            padding: 10px 30px;
+            font-size: 20px;
+            background: #f1c40f;
+            color: #000;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        /* Top Navigation Controls */
+        .top-nav-bar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            /* This is the magic: it puts items in a row */
+            gap: 15px;
+            /* This creates the space between the two icons */
+            z-index: 9999;
+            /* Ensure it stays above everything */
+        }
+
+        /* Base style for both icons */
+        #settings-icon,
+        #close-icon {
+            /* REMOVE any 'position: fixed' or 'top/right' from your old #settings-icon style */
+            position: relative;
+            width: 55px;
+            height: 55px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #444;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 26px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        /* Specific hover/focus for the Close button */
+        #close-icon:hover,
+        #close-icon:focus {
+            background: #e74c3c;
+            /* Red */
+            border-color: white;
+            transform: scale(1.1);
+            outline: none;
+        }
+
+        /* Specific hover/focus for Settings */
+        #settings-icon:hover,
+        #settings-icon:focus {
+            background: #f1c40f;
+            /* Gold */
+            border-color: white;
+            transform: scale(1.1);
+            outline: none;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="browser-ui">
+        <h1>Media Library</h1>
+        <div id="status">Connecting to Media Server...</div>
+        <div id="media-list" class="media-list"></div>
+    </div>
+
+    <div id="player-ui">
+        <video id="videoPlayer" controls crossorigin="anonymous" data-webos-controls="true" media-layer="true">
+            <track id="subTrack" kind="subtitles" srclang="si" label="Sinhala" default>
+        </video>
+    </div>
+
+    <div class="top-nav-bar">
+        <div id="settings-icon" tabindex="100" onclick="toggleSettings()">⚙️</div>
+        <div id="close-icon" tabindex="101" onclick="triggerExit()">✕</div>
+    </div>
+
+    <div id="settings-ui">
+        <div class="settings-box">
+            <div class="close-x" onclick="closeSettingsWithoutSaving()">✕</div>
+
+            <h2>WebOS Media Player Settings</h2>
+            <p>Media Server IP Address:</p>
+            <input type="text" id="ipInput" placeholder="e.g. 192.168.1.10">
+            <br>
+            <button class="btn" id="saveBtn">Save & Reload</button>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        let SERVER_IP = localStorage.getItem('server_ip') || "192.168.1.XX";
+        const BASE_URL = `http://${SERVER_IP}:3000`;
+
+        const settingsUI = document.getElementById('settings-ui');
+        const ipInput = document.getElementById('ipInput');
+        const saveBtn = document.getElementById('saveBtn');
+        const settingsIcon = document.getElementById('settings-icon');
+
+        const browserUI = document.getElementById('browser-ui');
+        const playerUI = document.getElementById('player-ui');
+        const video = document.getElementById('videoPlayer');
+        const subTrack = document.getElementById('subTrack');
+        const mediaList = document.getElementById('media-list');
+        const statusText = document.getElementById('status');
+
+        let lastFocusedElement = null;
+
+        window.onload = function () {
+            // Check if IP is set, if not, force settings open
+            if (SERVER_IP === "192.168.1.XX") {
+                openSettings();
+            } else {
+                fetchMedias();
+            }
+
+            // Settings logic
+            settingsIcon.onclick = openSettings;
+            saveBtn.onclick = saveSettings;
+
+            // 1. Push a fake state so the 'Back' button has somewhere to go 
+            // instead of exiting the app immediately.
+            window.history.pushState({ page: 'list' }, null, "");
+
+            // 2. Listen for the PopState (triggered by the Back Button)
+            window.onpopstate = function (event) {
+                if (playerUI.style.display === "block") {
+                    console.log("Media playing, Closing the player...");
+                    // Stay in the app!
+                    closePlayer();
+
+                    // Push the state back in so the NEXT back button press 
+                    // also doesn't exit the app
+                    window.history.pushState({ page: 'list' }, null, "");
+                } else {
+                    // We are already on the list, so let it exit
+                    //window.close();
+                    console.log("Stay in the list...");
+                    window.history.pushState({ page: 'list' }, null, "");
+                }
+            };
+
+            // 3. Keep the Keydown listener as a backup
+            document.addEventListener('keydown', handleKeydown, true);
+
+            // PUSH A FAKE STATE IMMEDIATELY
+            window.history.pushState({ page: 'main' }, null, "");
+        };
+
+        function handleBackLogic() {
+            const isPlayerActive = (document.getElementById('player-ui').style.display === "block");
+
+            if (isPlayerActive) {
+                closePlayer();
+                // After closing, push the fake state back so the NEXT back press exits
+                window.history.pushState({ page: 'main' }, null, "");
+            } else {
+                // WE ARE ON THE MAIN LIST - TRIGGER THE LG DIALOG
+                console.log("Triggering LG Exit Dialog...");
+
+                if (window.PalmSystem && window.PalmSystem.platformBack) {
+                    window.PalmSystem.platformBack();
+                } else {
+                    // Last resort
+                    window.close();
+                }
+            }
+        }
+
+        function handleKeydown(e) {
+            console.log("Key pressing deletcted..");
+            console.log(e.keyCode);
+            const isPlayerActive = (playerUI.style.display === "block");
+            const isSettingsActive = (settingsUI.style.display === "flex");
+
+            // Skip/Play logic (only if player is active)
+            if (isPlayerActive) {
+                if (e.keyCode === 37) video.currentTime -= 5;
+                if (e.keyCode === 39) video.currentTime += 5;
+            } else {
+                //TODO add list navigation
+            }
+        }
+
+        function openSettings() {
+            ipInput.value = SERVER_IP;
+            settingsUI.style.display = "flex";
+            ipInput.focus();
+        }
+
+        function saveSettings() {
+            const newIP = ipInput.value.trim();
+            if (newIP) {
+                localStorage.setItem('server_ip', newIP);
+                location.reload(); // Reloads app with new IP
+            }
+        }
+
+        async function fetchMedias() {
+            statusText.innerText = "Scanning Media Directories...";
+            try {
+                const response = await fetch(`${BASE_URL}/api/browse`);
+                const data = await response.json();
+                renderMedias(data.items);
+            } catch (err) {
+                statusText.innerText = "Error: Cannot connect to the server. Please check `Server IP Address` in settings and server is online.";
+                console.error(err);
+            }
+        }
+
+        function renderMedias(items) {
+            mediaList.innerHTML = "";
+            if (!items || items.length === 0) {
+                statusText.innerText = "No Media found.";
+                return;
+            }
+
+            statusText.innerText = `Found ${items.length} items.`;
+
+            items.forEach((media, index) => {
+                const card = document.createElement('div');
+                card.className = "media-card";
+                card.tabIndex = index; // Allows remote navigation
+                card.innerText = "🎬 " + media.name;
+
+                card.onclick = () => startMedia(media);
+                card.onkeydown = (e) => { if (e.keyCode === 13) startMedia(media); };
+
+                mediaList.appendChild(card);
+            });
+
+            // Focus the first media so the remote works instantly
+            if (mediaList.firstChild) mediaList.firstChild.focus();
+        }
+
+        function startMedia(media) {
+            // We still use the #mediaOption trick for that USB-level 4K quality
+            const mediaOption = {
+                "mediaTransportType": "URI",
+                "option": {
+                    "transmission": { "adaptive": false, "seamless": true },
+                    "mediaLayer": { "video": true, "audio": true }
+                }
+            };
+
+            const streamUrl = `${BASE_URL}/stream?path=${encodeURIComponent(media.path)}`;
+            const configString = encodeURIComponent(JSON.stringify(mediaOption));
+
+            video.src = `${streamUrl}#mediaOption=${configString}`;
+
+            // Set subtitles
+            const srtPath = media.path.replace(/\.[^/.]+$/, ".srt");
+            subTrack.src = `${BASE_URL}/sub?path=${encodeURIComponent(srtPath)}`;
+
+            playerUI.style.display = "block";
+            browserUI.style.display = "none";
+
+            video.load();
+            video.play();
+
+            // IMPORTANT: Focus the video so the bar shows up when you move the remote
+            video.focus();
+        }
+
+        function closePlayer() {
+            video.pause();
+            video.src = ""; // Release memory
+            video.load();
+
+            playerUI.style.display = "none";
+            browserUI.style.display = "block";
+
+            // Restore focus to the media we were just looking at
+            if (lastFocusedElement) {
+                lastFocusedElement.focus();
+            } else if (mediaList.firstChild) {
+                mediaList.firstChild.focus();
+            }
+        }
+
+        function closeSettingsWithoutSaving() {
+            const settingsUI = document.getElementById('settings-ui');
+            settingsUI.style.display = 'none';
+
+            // This tells the browser: "The user navigated back to the list"
+            // even though we stayed on the same page.
+            window.history.pushState({ page: 'list' }, null, "");
+        }
+
+        function triggerExit() {
+            // This triggers the LG System Exit dialog safely
+            if (window.PalmSystem && window.PalmSystem.platformBack) {
+                window.PalmSystem.platformBack();
+            } else {
+                // Fallback for browser/dev mode
+                if (confirm("Exit the application?")) {
+                    window.close();
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
