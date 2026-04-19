@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 
 // ADD THESE TWO LINES:
-app.use(express.json()); 
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 const PORT = 3000;
@@ -23,6 +23,7 @@ const mimeTypes = {
 };
 
 const CONFIG_FILE = './config.json';
+const { exec } = require('child_process');
 
 // Initialize config
 let config = {
@@ -237,4 +238,18 @@ app.post('/api/set-directory', (req, res) => {
 
 app.get('/config', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'config.html'));
+});
+
+// Endpoint to list all available Windows drives
+app.get('/api/get-drives', (req, res) => {
+    // This command returns drive letters like "C: D: F:"
+    exec('wmic logicaldisk get name', (err, stdout) => {
+        if (err) return res.json(['C:']); // Fallback to C: if it fails
+
+        const drives = stdout.split('\r\n')
+            .filter(line => line.includes(':'))
+            .map(line => line.trim());
+
+        res.json(drives);
+    });
 });

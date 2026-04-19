@@ -33,20 +33,33 @@
             font-size: 1.1em;
         }
 
-        .btn {
+        .btn-primary {
             background: #f1c40f;
-            color: black;
+            /* The Yellow */
+            color: #000000;
+            /* Pure Black Text */
             border: none;
             padding: 12px 25px;
-            border-radius: 6px;
+            border-radius: 8px;
             cursor: pointer;
-            font-weight: bold;
-            transition: 0.2s;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 1rem;
+            transition: transform 0.1s active;
         }
 
-        .btn:hover {
+        /* This turns the emojis into solid black "stencils" */
+        .btn-primary .icon {
+            filter: brightness(0);
+            font-size: 1.3em;
+            display: inline-block;
+        }
+
+        .btn-primary:hover {
             background: #d4ac0d;
-            transform: translateY(-2px);
         }
 
         /* Modal / Browser Overlay */
@@ -119,24 +132,32 @@
         <p>Currently serving media from:</p>
         <div id="activePathDisplay" class="path-display">Loading...</div>
 
-        <button class="btn" onclick="openBrowser()">📂 Change Media Directory</button>
+        <button class="btn-primary" onclick="openBrowser()">
+            <span class="icon">📁</span> Change Media Directory
+        </button>
     </div>
 
     <div id="browserModal">
         <div class="modal-content">
             <div class="modal-header">
                 <h3 style="margin:0">Select Media Folder</h3>
-                <button class="btn" onclick="closeBrowser()"
+                <button class="btn-primary" onclick="closeBrowser()"
                     style="background:#444; color:white; padding:5px 15px;">Close</button>
             </div>
 
-            <div class="current-nav-path" id="navPath">D:\</div>
+            <div id="driveButtons" style="margin: 10px 0; display: flex; gap: 8px; flex-wrap: wrap;"></div>
 
+            <div class="current-nav-path" id="navPath">Loading drives...</div>
             <div id="dirExplorer" class="dir-list"></div>
 
-            <div style="display:flex; gap:10px;">
-                <button class="btn" style="background:#555; color:white; flex:1" onclick="goUp()">⬆️ Go Back</button>
-                <button class="btn" style="flex:2" onclick="confirmSelection()">✅ Select This Folder</button>
+            <div style="display:flex; gap:10px; margin-top: 20px;">
+                <button class="btn-primary" style="flex:1;" onclick="goUp()">
+                    <span class="icon">⇠</span> Go Back
+                </button>
+
+                <button class="btn-primary" style="flex:2;" onclick="confirmSelection()">
+                    <span class="icon">✓</span> Select This Folder
+                </button>
             </div>
         </div>
     </div>
@@ -153,6 +174,7 @@
 
         function openBrowser() {
             document.getElementById('browserModal').style.display = 'block';
+            loadDrives(); // Freshly scan drives every time the browser opens
             loadDirectory(tempBrowsingPath);
         }
 
@@ -217,6 +239,27 @@
                 console.error("Fetch error:", error);
                 alert("Could not connect to the server. Is it running?");
             }
+        }
+
+        // Function to fetch and display available drives
+        async function loadDrives() {
+            const res = await fetch('/api/get-drives');
+            const drives = await res.json();
+            const driveBox = document.getElementById('driveButtons');
+            driveBox.innerHTML = ""; // Clear existing
+
+            drives.forEach(drive => {
+                const btn = document.createElement('button');
+                btn.className = 'btn-primary';
+                btn.style = "padding: 5px 12px; background: #333; color: #f1c40f; border: 1px solid #444;";
+                btn.innerText = drive;
+                btn.onclick = () => {
+                    // Jump to the root of that drive
+                    tempBrowsingPath = drive + "\\";
+                    loadDirectory(tempBrowsingPath);
+                };
+                driveBox.appendChild(btn);
+            });
         }
 
         init();
