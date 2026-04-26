@@ -7,7 +7,6 @@ const os = require('os');
 const app = express();
 app.use(cors());
 
-// ADD THESE TWO LINES:
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
