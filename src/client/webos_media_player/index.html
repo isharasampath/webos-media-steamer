@@ -81,7 +81,8 @@
             width: 100vw;
             height: 100vh;
             background: #000;
-            z-index: 10000; /* Higher than the 9999 of top-nav-bar */
+            z-index: 9999;
+            /* Higher than the 9999 of top-nav-bar */
         }
 
         video {
@@ -171,7 +172,7 @@
             /* This is the magic: it puts items in a row */
             gap: 15px;
             /* This creates the space between the two icons */
-            z-index: 9999;
+            z-index: 9990;
             /* Ensure it stays above everything */
         }
 
@@ -212,6 +213,49 @@
             transform: scale(1.1);
             outline: none;
         }
+
+        /* __________________________________________________________________________________________________________ */
+        .overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            padding: 40px 20px;
+            background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+            transition: opacity 0.5s ease;
+            z-index: 10000;
+        }
+
+        .hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .progress-container {
+            width: 95%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 0 auto 10px;
+            border-radius: 4px;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background: #f1c40f;
+            /* Your signature yellow */
+            border-radius: 4px;
+        }
+
+        .time-info {
+            display: flex;
+            justify-content: space-between;
+            width: 95%;
+            margin: 0 auto;
+            color: white;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+        }
     </style>
 </head>
 
@@ -224,9 +268,19 @@
     </div>
 
     <div id="player-ui">
-        <video id="videoPlayer" controls crossorigin="anonymous" data-webos-controls="true" media-layer="true">
+        <video id="videoPlayer" crossorigin="anonymous" data-webos-controls="true" media-layer="true">
             <track id="subTrack" kind="subtitles" srclang="si" label="Sinhala" default>
         </video>
+    </div>
+
+    <div id="video-overlay" class="overlay hidden">
+        <div class="progress-container">
+            <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <div class="time-info">
+            <span id="elapsed-time">00:00:00</span>
+            <span id="total-time">00:00:00</span>
+        </div>
     </div>
 
     <div class="top-nav-bar">
@@ -263,7 +317,22 @@
         const mediaList = document.getElementById('media-list');
         const statusText = document.getElementById('status');
 
+        const overlay = document.getElementById('video-overlay');
+        const progressBar = document.getElementById('progress-bar');
+        const elapsedText = document.getElementById('elapsed-time');
+        const totalText = document.getElementById('total-time');
+
+        // Helper: Format seconds to HH:MM:SS
+        const formatTime = (seconds) => {
+            const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
+            const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
+            const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+            return `${h}:${m}:${s}`;
+        };
+
         let lastFocusedElement = null;
+
+        let overlayTimer;
 
         window.onload = function () {
             // Check if IP is set, if not, force settings open
@@ -286,6 +355,7 @@
                 if (playerUI.style.display === "block") {
                     console.log("Media playing, Closing the player...");
                     // Stay in the app!
+                    closeOverlay();
                     closePlayer();
 
                     // Push the state back in so the NEXT back button press 
@@ -299,31 +369,40 @@
                 }
             };
 
-            // 3. Keep the Keydown listener as a backup
             document.addEventListener('keydown', handleKeydown, true);
 
             // PUSH A FAKE STATE IMMEDIATELY
             window.history.pushState({ page: 'main' }, null, "");
         };
 
-        function handleBackLogic() {
-            const isPlayerActive = (document.getElementById('player-ui').style.display === "block");
+        // Magic Remote Movement
+        // window.addEventListener('mousemove', () => {
+        //     console.log("Mouse moving...");
+        //     if (playerUI.style.display === "block") {
+        //         console.log("Showing overlay...");
+        //         showOverlay();
+        //     }
+        // });
 
-            if (isPlayerActive) {
-                closePlayer();
-                // After closing, push the fake state back so the NEXT back press exits
-                window.history.pushState({ page: 'main' }, null, "");
-            } else {
-                // WE ARE ON THE MAIN LIST - TRIGGER THE LG DIALOG
-                console.log("Triggering LG Exit Dialog...");
+        // Update Progress
+        video.addEventListener('timeupdate', () => {
+            const percent = (video.currentTime / video.duration) * 100;
+            progressBar.style.width = percent + '%';
+            elapsedText.innerText = formatTime(video.currentTime);
+            totalText.innerText = formatTime(video.duration);
+        });
 
-                if (window.PalmSystem && window.PalmSystem.platformBack) {
-                    window.PalmSystem.platformBack();
-                } else {
-                    // Last resort
-                    window.close();
-                }
-            }
+        // Update showOverlay to be more robust
+        function showOverlay() {
+            overlay.classList.remove('hidden');
+
+            // Clear the existing timer so it doesn't hide too early
+            clearTimeout(overlayTimer);
+
+            // Hide after 3 seconds of NO movement
+            overlayTimer = setTimeout(() => {
+                closeOverlay();
+            }, 3000);
         }
 
         function handleKeydown(e) {
@@ -334,10 +413,24 @@
 
             // Skip/Play logic (only if player is active)
             if (isPlayerActive) {
-                if (e.keyCode === 37) video.currentTime -= 5;
-                if (e.keyCode === 39) video.currentTime += 5;
+                console.log("Key pressing deletcted when playing..");
+                switch (e.keyCode) {
+                    case 37: // Left Arrow - Seek Back 5s
+                        showOverlay();
+                        video.currentTime = Math.max(0, video.currentTime - 5);
+                        break;
+                    case 39: // Right Arrow - Seek Forward 5s
+                        showOverlay();
+                        video.currentTime = Math.min(video.duration, video.currentTime + 5);
+                        break;
+                    case 13: // Enter - Toggle Play/Pause
+                        showOverlay();
+                        if (video.paused) video.play(); else video.pause();
+                        break;
+                }
             } else {
                 //TODO add list navigation
+                console.log("Key pressing deletcted when not playing..");
             }
         }
 
@@ -345,6 +438,10 @@
             ipInput.value = SERVER_IP;
             settingsUI.style.display = "flex";
             ipInput.focus();
+        }
+
+        function closeOverlay() {
+            overlay.classList.add('hidden');
         }
 
         function saveSettings() {
