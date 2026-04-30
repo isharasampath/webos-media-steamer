@@ -51,6 +51,7 @@
         }
 
         .media-card {
+            position: relative;
             background: #1a1a1a;
             padding: 25px;
             border-radius: 12px;
@@ -62,6 +63,7 @@
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            height: 30px;
         }
 
         /* Magic Remote Hover/Focus Effect */
@@ -69,6 +71,60 @@
             border-color: #e74c3c;
             background: #2a2a2a;
             transform: scale(1.05);
+        }
+
+        .media-card.in-progress {
+            border-left: 5px solid #f1c40f;
+            /* Signature yellow indicator */
+            background: rgba(241, 196, 15, 0.05);
+        }
+
+        .in-progress-dot {
+            position: absolute;
+            top: 7px;
+            left: 7px;
+            width: 12px;
+            height: 12px;
+            background-color: #f1c40f;
+            /* Your signature yellow */
+            border-radius: 50%;
+            z-index: 5;
+
+            /* Ensure the browser treats it as a layer for animation */
+            will-change: transform, opacity;
+
+            /* Apply the animation */
+            animation: pulse 2s infinite ease-in-out;
+        }
+
+        /* 1. Define the animation steps */
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+                box-shadow: 0 0 5px rgba(241, 196, 15, 0.6);
+            }
+
+            50% {
+                transform: scale(1.3);
+                /* Grow slightly */
+                opacity: 0.8;
+                box-shadow: 0 0 15px rgba(241, 196, 15, 0.9);
+                /* Glow harder */
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+                box-shadow: 0 0 5px rgba(241, 196, 15, 0.6);
+            }
+        }
+
+        .resume-label {
+            font-size: 1.1rem;
+            color: #aaa;
+            margin-top: 5px;
+            font-style: italic;
         }
 
         /* 3. VIDEO PLAYER UI */
@@ -330,9 +386,26 @@
             return `${h}:${m}:${s}`;
         };
 
+        const WatchHistory = {
+            // Save the current time for a specific movie
+            savePosition: function (moviePath, currentTime, duration) {
+                let history = JSON.parse(localStorage.getItem('media_history') || '{}');
+                history[moviePath] = { time: currentTime, total: duration };
+                localStorage.setItem('media_history', JSON.stringify(history));
+            },
+
+            // Retrieve the stopped time for a movie
+            getPosition: function (moviePath) {
+                let history = JSON.parse(localStorage.getItem('media_history') || '{}');
+                return history[moviePath] || 0; // Return 0 if never watched
+            }
+        };
+
         let lastFocusedElement = null;
 
         let overlayTimer;
+
+        let currentlyPlayingMedia;
 
         window.onload = function () {
             // Check if IP is set, if not, force settings open
@@ -361,6 +434,8 @@
                     // Push the state back in so the NEXT back button press 
                     // also doesn't exit the app
                     window.history.pushState({ page: 'list' }, null, "");
+
+                    fetchMedias();
                 } else {
                     // We are already on the list, so let it exit
                     //window.close();
@@ -472,12 +547,45 @@
             }
 
             statusText.innerText = `Found ${items.length} items.`;
+            // 1. Get the full history object once to avoid multiple localStorage reads
+            const history = JSON.parse(localStorage.getItem('media_history') || '{}');
 
             items.forEach((media, index) => {
                 const card = document.createElement('div');
                 card.className = "media-card";
                 card.tabIndex = index; // Allows remote navigation
-                card.innerText = "🎬 " + media.name;
+                card.dataset.name = media.name;
+
+                // 2. Check if this specific media has a saved time
+                const record = history[media.name];
+
+                // Clear any previous innerHTML to start fresh
+                card.innerHTML = "";
+
+                if (record && typeof record === 'object') {
+                    const savedTime = Number(record.time || 0);
+                    const totalTime = Number(record.total || 0);
+                    if (savedTime > 10 && savedTime < (totalTime - 10)) {
+                        // Create the dot
+                        const dot = document.createElement('div');
+                        dot.className = "in-progress-dot";
+                        card.appendChild(dot);
+
+                        // Add text content
+                        const text = document.createTextNode("🎬 " + media.name);
+                        card.appendChild(text);
+
+                        // Optional: Add the "Resume at" label if you still want the timestamp
+                        const timeLabel = document.createElement('div');
+                        timeLabel.className = "resume-label";
+                        timeLabel.innerText = `Resume at ${formatTime(savedTime)} / ${formatTime(totalTime)}`;
+                        card.appendChild(timeLabel);
+                    } else {
+                        card.innerText = "🎬 " + media.name;
+                    }
+                } else {
+                    card.innerText = "🎬 " + media.name;
+                }
 
                 card.onclick = () => startMedia(media);
                 card.onkeydown = (e) => { if (e.keyCode === 13) startMedia(media); };
@@ -486,10 +594,49 @@
             });
 
             // Focus the first media so the remote works instantly
-            if (mediaList.firstChild) mediaList.firstChild.focus();
+            // if (mediaList.firstChild) mediaList.firstChild.focus();
+        }
+
+        function updateCurrentCardUI() {
+            const mediaName = currentlyPlayingMedia.name;
+            // Find the card in the list that matches the path
+            const cards = document.querySelectorAll('.media-card');
+            cards.forEach(card => {
+                // We can store the path in a data attribute when rendering
+                if (card.dataset.name === mediaName) {
+                    const record = WatchHistory.getPosition(mediaName);
+                    const savedTime = Number(record.time || 0);
+                    const totalTime = Number(record.total || 0);
+
+                    // Clear any previous innerHTML to start fresh
+                    card.innerHTML = "";
+
+                    if (savedTime > 10 && savedTime < (totalTime - 10)) {
+                        // Create the dot
+                        const dot = document.createElement('div');
+                        dot.className = "in-progress-dot";
+                        card.appendChild(dot);
+
+                        // Add text content
+                        const text = document.createTextNode("🎬 " + mediaName);
+                        card.appendChild(text);
+
+                        // Optional: Add the "Resume at" label if you still want the timestamp
+                        const timeLabel = document.createElement('div');
+                        timeLabel.className = "resume-label";
+                        timeLabel.innerText = `Resume at ${formatTime(savedTime)} / ${formatTime(totalTime)}`;
+                        card.appendChild(timeLabel);
+                    } else {
+                        card.innerText = "🎬 " + mediaName;
+                    }
+                }
+            });
         }
 
         function startMedia(media) {
+            const savedTime = WatchHistory.getPosition(media.name).time;
+            currentlyPlayingMedia = media;
+
             // We still use the #mediaOption trick for that USB-level 4K quality
             const mediaOption = {
                 "mediaTransportType": "URI",
@@ -512,7 +659,15 @@
             browserUI.style.display = "none";
 
             video.load();
-            video.play();
+            // video.play();
+            // Once metadata is loaded, jump to the saved position
+            video.onloadedmetadata = () => {
+                if (savedTime > 0) {
+                    console.log(`Resuming from ${savedTime}s`);
+                    video.currentTime = savedTime;
+                }
+                video.play();
+            };
 
             // IMPORTANT: Focus the video so the bar shows up when you move the remote
             video.focus();
@@ -520,6 +675,13 @@
 
         function closePlayer() {
             video.pause();
+
+            // Save current possition before exit from playback.
+            WatchHistory.savePosition(currentlyPlayingMedia.name, video.currentTime, video.duration);
+
+            // Update UI card
+            updateCurrentCardUI();
+
             video.src = ""; // Release memory
             video.load();
 
