@@ -1,0 +1,369 @@
+/* 1. FONT SETUP */
+@font-face {
+    font-family: 'SinhalaFont';
+    src: url('assets/fonts/NotoSansSinhala-Regular.ttf');
+}
+
+body {
+    background-color: #050505;
+    color: #eeeeee;
+    font-family: 'Segoe UI', Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+/* 2. LIBRARY BROWSER UI */
+#browser-ui {
+    padding: 50px;
+    height: 100vh;
+    display: block;
+    /* Shown by default */
+}
+
+h1 {
+    color: #f1c40f;
+    font-size: 38px;
+    margin-bottom: 10px;
+}
+
+#status {
+    color: #888;
+    margin-bottom: 30px;
+    font-size: 20px;
+}
+
+.media-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 25px;
+    height: 70vh;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.media-card {
+    position: relative;
+    background: #1a1a1a;
+    padding: 25px;
+    border-radius: 12px;
+    border: 3px solid transparent;
+    cursor: pointer;
+    font-size: 22px;
+    transition: 0.2s;
+    outline: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 30px;
+}
+
+/* Magic Remote Hover/Focus Effect */
+.media-card:focus {
+    border-color: #e74c3c;
+    background: #2a2a2a;
+    transform: scale(1.05);
+}
+
+.media-card.in-progress {
+    border-left: 5px solid #f1c40f;
+    /* Signature yellow indicator */
+    background: rgba(241, 196, 15, 0.05);
+}
+
+.in-progress-dot {
+    position: absolute;
+    top: 7px;
+    left: 7px;
+    width: 12px;
+    height: 12px;
+    background-color: #f1c40f;
+    /* Your signature yellow */
+    border-radius: 50%;
+    z-index: 5;
+
+    /* Ensure the browser treats it as a layer for animation */
+    will-change: transform, opacity;
+
+    /* Apply the animation */
+    animation: pulse 2s infinite ease-in-out;
+}
+
+/* 1. Define the animation steps */
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 1;
+        box-shadow: 0 0 5px rgba(241, 196, 15, 0.6);
+    }
+
+    50% {
+        transform: scale(1.3);
+        /* Grow slightly */
+        opacity: 0.8;
+        box-shadow: 0 0 15px rgba(241, 196, 15, 0.9);
+        /* Glow harder */
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+        box-shadow: 0 0 5px rgba(241, 196, 15, 0.6);
+    }
+}
+
+.resume-label {
+    font-size: 1.1rem;
+    color: #aaa;
+    margin-top: 5px;
+    font-style: italic;
+}
+
+/* 3. VIDEO PLAYER UI */
+#player-ui {
+    display: none;
+    /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    z-index: 9999;
+    /* Higher than the 9999 of top-nav-bar */
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    /* Forces the TV to use the hardware video layer */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000;
+}
+
+/* Sinhala Subtitle Formatting */
+video::cue {
+    font-family: 'SinhalaFont', sans-serif;
+    font-size: 0.8em;
+    background-color: transparent;
+    color: white;
+}
+
+/* Settings Modal */
+#settings-ui {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 2000;
+    justify-content: center;
+    align-items: center;
+}
+
+.settings-box {
+    position: relative;
+    /* Needed to anchor the X in the corner */
+    background: #222;
+    padding: 40px;
+    border-radius: 20px;
+    text-align: center;
+    border: 2px solid #f1c40f;
+}
+
+.close-x {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 24px;
+    color: #888;
+    cursor: pointer;
+    line-height: 1;
+    transition: 0.2s;
+}
+
+.close-x:hover {
+    color: #e74c3c;
+    /* Turns red when you point at it */
+    transform: scale(1.2);
+}
+
+input {
+    font-size: 24px;
+    padding: 10px;
+    width: 300px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border: none;
+    text-align: center;
+}
+
+.btn {
+    padding: 10px 30px;
+    font-size: 20px;
+    background: #f1c40f;
+    color: #000;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+/* Top Navigation Controls */
+.top-nav-bar {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    /* This is the magic: it puts items in a row */
+    gap: 15px;
+    /* This creates the space between the two icons */
+    z-index: 9990;
+    /* Ensure it stays above everything */
+}
+
+/* Base style for both icons */
+#settings-icon,
+#reload-icon,
+#close-icon {
+    /* REMOVE any 'position: fixed' or 'top/right' from your old #settings-icon style */
+    position: relative;
+    width: 55px;
+    height: 55px;
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #444;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+/* Specific hover/focus for the Close button */
+#close-icon:hover,
+#close-icon:focus {
+    background: #e74c3c;
+    /* Red */
+    border-color: white;
+    transform: scale(1.1);
+    outline: none;
+}
+
+/* Specific hover/focus for Settings */
+#settings-icon:hover,
+#settings-icon:focus {
+    background: #f1c40f;
+    /* Gold */
+    border-color: white;
+    transform: scale(1.1);
+    outline: none;
+}
+
+#reload-icon:hover,
+#reload-icon:focus {
+    background: #f1c40f;
+    /* Gold */
+    border-color: white;
+    transform: scale(1.1);
+    outline: none;
+}
+
+/* __________________________________________________________________________________________________________ */
+.overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 40px 20px;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+    transition: opacity 0.5s ease;
+    z-index: 10000;
+}
+
+.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.progress-container {
+    width: 95%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.2);
+    margin: 0 auto 10px;
+    border-radius: 4px;
+}
+
+.progress-bar {
+    height: 100%;
+    width: 0%;
+    background: #f1c40f;
+    /* Your signature yellow */
+    border-radius: 4px;
+}
+
+.time-info {
+    display: flex;
+    justify-content: space-between;
+    width: 95%;
+    margin: 0 auto;
+    color: white;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+}
+
+/*________________________________________________________________________*/
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    /* Deep black for OLED */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: #1a1a1a;
+    padding: 40px;
+    border-radius: 15px;
+    border: 2px solid #f1c40f;
+    text-align: center;
+    width: 400px;
+}
+
+.modal-buttons {
+    display: flex;
+    justify-content: space-around;
+    margin-top: 30px;
+}
+
+.modal-btn {
+    background: #333;
+    color: white;
+    border: none;
+    padding: 15px 25px;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    outline: none;
+}
+
+.modal-btn:focus {
+    background: #f1c40f;
+    /* Your signature yellow */
+    color: black;
+    transform: scale(1.1);
+}
+
+.hidden {
+    display: none;
+}
